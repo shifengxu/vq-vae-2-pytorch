@@ -108,6 +108,15 @@ class Encoder(nn.Module):
                 nn.Conv2d(channel, channel, 3, padding=1),
             ]
 
+        elif stride == 8:
+            blocks = [
+                nn.Conv2d(in_channel, channel // 2, 4, stride=4, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel // 2, channel, 4, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel, channel, 3, padding=1),
+            ]
+
         elif stride == 2:
             blocks = [
                 nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
@@ -150,6 +159,17 @@ class Decoder(nn.Module):
                 ]
             )
 
+        elif stride == 8:
+            blocks.extend(
+                [
+                    nn.ConvTranspose2d(channel, channel // 2, 4, stride=2, padding=1),
+                    nn.ReLU(inplace=True),
+                    nn.ConvTranspose2d(channel // 2, channel // 2, 4, stride=2, padding=1),
+                    nn.ReLU(inplace=True),
+                    nn.ConvTranspose2d(channel // 2, out_channel, 4, stride=2, padding=1),
+                ]
+            )
+
         elif stride == 2:
             blocks.append(
                 nn.ConvTranspose2d(channel, out_channel, 4, stride=2, padding=1)
@@ -171,10 +191,20 @@ class VQVAE(nn.Module):
         embed_dim=64,
         n_embed=512,
         decay=0.99,
+        stride_b=4,
+        log_fn=print,
     ):
         super().__init__()
+        log_fn(f"VQVAE(nn.Module)")
+        log_fn(f"  in_channel   : {in_channel}")
+        log_fn(f"  channel      : {channel}")
+        log_fn(f"  n_res_block  : {n_res_block}")
+        log_fn(f"  n_res_channel: {n_res_channel}")
+        log_fn(f"  embed_dim    : {embed_dim}")
+        log_fn(f"  n_embed      : {n_embed}")
+        log_fn(f"  stride_b     : {stride_b}")
 
-        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=stride_b)
         self.enc_t = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         self.quantize_t = Quantize(embed_dim, n_embed)
@@ -183,29 +213,32 @@ class VQVAE(nn.Module):
         )
         self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
         self.quantize_b = Quantize(embed_dim, n_embed)
-        self.upsample_t = nn.ConvTranspose2d(
-            embed_dim, embed_dim, 4, stride=2, padding=1
-        )
+        self.upsample_t = nn.ConvTranspose2d(embed_dim, embed_dim, 4, stride=2, padding=1)
         self.dec = Decoder(
             embed_dim + embed_dim,
             in_channel,
             channel,
             n_res_block,
             n_res_channel,
-            stride=4,
+            stride=stride_b,
         )
 
     def forward(self, input):
+        # input: [bs, 3, 256, 256]
+        # quant_t: [bs, 64, 32, 32]
+        # quant_b: [bs, 64, 64, 64]
         quant_t, quant_b, diff, _, _ = self.encode(input)
         dec = self.decode(quant_t, quant_b)
 
+        # dec : [bs, 3, 256, 256]
+        # diff: [1]
         return dec, diff
 
     def encode(self, input):
-        enc_b = self.enc_b(input)
-        enc_t = self.enc_t(enc_b)
+        enc_b = self.enc_b(input) # shape [bs, 128, 64, 64]
+        enc_t = self.enc_t(enc_b) # shape [bs, 128, 32, 32]
 
-        quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 1)
+        quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 1) # [bs, 32, 32, 64]
         quant_t, diff_t, id_t = self.quantize_t(quant_t)
         quant_t = quant_t.permute(0, 3, 1, 2)
         diff_t = diff_t.unsqueeze(0)
@@ -221,6 +254,10 @@ class VQVAE(nn.Module):
         return quant_t, quant_b, diff_t + diff_b, id_t, id_b
 
     def decode(self, quant_t, quant_b):
+        # quant_t   : [bs, 64, 32, 32]
+        # quant_b   : [bs, 64, 64, 64]
+        # upsample_t: [bs, 64, 64, 64]
+        # quant     : [bs, 128, 64, 64]
         upsample_t = self.upsample_t(quant_t)
         quant = torch.cat([upsample_t, quant_b], 1)
         dec = self.dec(quant)
