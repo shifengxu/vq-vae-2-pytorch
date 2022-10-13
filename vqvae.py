@@ -204,6 +204,9 @@ class VQVAE(nn.Module):
         log_fn(f"  n_embed      : {n_embed}")
         log_fn(f"  stride_b     : {stride_b}")
 
+        self.stride_b = stride_b
+        self.embed_dim = embed_dim
+        self.epoch = 0 # only used when load model from checkpoint
         self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=stride_b)
         self.enc_t = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
@@ -222,6 +225,13 @@ class VQVAE(nn.Module):
             n_res_channel,
             stride=stride_b,
         )
+
+    def eigen_str(self):
+        """
+        Eigen string, which reflect the model characters.
+        :return:
+        """
+        return f"str{self.stride_b}_emb{self.embed_dim}_epo{self.epoch}"
 
     def forward(self, input):
         # input: [bs, 3, 256, 256]
