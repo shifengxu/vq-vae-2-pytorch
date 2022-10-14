@@ -4,6 +4,7 @@ import datetime
 import os
 import time
 import torch
+import numpy as np
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
@@ -35,8 +36,8 @@ def gen_args():
     parser.add_argument("--num_workers", type=int, default=16)
     parser.add_argument("--sched", type=str)
     parser.add_argument("--img_path", type=str, default='./image_dataset/FFHQ')
-    parser.add_argument("--ckpt", type=str2bool, default=False)
-    parser.add_argument("--ckpt_path", type=str, default='./checkpoint/downloaded_vqvae_560.pt')
+    parser.add_argument("--ckpt", type=str2bool, default=False, help='load checkpoint')
+    parser.add_argument("--ckpt_path", type=str, default='./checkpoint/vqvae_str8_emb2_E000.pt')
     parser.add_argument("--save_ckpt_dir", type=str, default='checkpoint')
     parser.add_argument("--latent_dir", type=str, default="./latent")
     parser.add_argument("--decode_dir", type=str, default="./decode_dir")
@@ -251,10 +252,16 @@ def save_vq_in_batch(vq_batch, seq_init, root_dir):
         if not os.path.exists(d_path):
             log_fn(f"mkdir: {d_path}")
             os.makedirs(d_path)
-        f_path = os.path.join(d_path, f"{seq:05d}.png")
-        torch.save(vq_batch[i], f_path)
+        f_path = os.path.join(d_path, f"{seq:05d}")
+        # file name will have ".npy" automatically
+        np.save(f_path, vq_batch[i].cpu().numpy())
+        # torch.save(vq_batch[i], f_path)
+    # for
+    # If save by torch, then need to load by torch.
+    # And when load by torch.load(), it will have error:
+    #   cannot re-initialize cuda in forked subprocess. to use cuda
+    #   with multiprocessing, you must use the 'spawn' start method
     return f_path
-
 
 def decode(args, model: VQVAE):
     decode_dir = args.decode_dir
