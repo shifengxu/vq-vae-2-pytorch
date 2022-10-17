@@ -1,4 +1,6 @@
 import argparse
+import os
+
 import torch.nn as nn
 import math
 import datetime
@@ -72,3 +74,22 @@ def get_time_ttl_and_eta(time_start, elapsed_iter, total_iter):
         eta = elapsed_time * (total_iter - elapsed_iter) / elapsed_iter
         eta = sec_to_str(eta)
     return elp, eta
+
+def make_dirs_if_need(*f_dirs, log_fn=log_info):
+    f_path = os.path.join(*f_dirs)
+    if os.path.exists(f_path):
+        return f_path
+    log_fn(f"mkdir: {f_path}")
+    os.makedirs(f_path)
+    return f_path
+
+def output_list(lst, name, log_fn=log_info):
+    def num2str(num_arr):
+        flt_arr = [float(n) for n in num_arr]
+        str_arr = [f"{f:.6f}" for f in flt_arr]
+        return " ".join(str_arr)
+
+    cnt = len(lst)
+    for i in range(0, cnt, 10):
+        r = min(i+10, cnt)  # right bound
+        log_fn(f"{name}[{i:03d}~{r:03d}]:\t{num2str(lst[i:r])}")

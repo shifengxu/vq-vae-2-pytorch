@@ -117,6 +117,15 @@ class Encoder(nn.Module):
                 nn.Conv2d(channel, channel, 3, padding=1),
             ]
 
+        elif stride == 16:
+            blocks = [
+                nn.Conv2d(in_channel, channel // 2, 4, stride=8, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel // 2, channel, 4, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel, channel, 3, padding=1),
+            ]
+
         elif stride == 2:
             blocks = [
                 nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
@@ -163,6 +172,19 @@ class Decoder(nn.Module):
             blocks.extend(
                 [
                     nn.ConvTranspose2d(channel, channel // 2, 4, stride=2, padding=1),
+                    nn.ReLU(inplace=True),
+                    nn.ConvTranspose2d(channel // 2, channel // 2, 4, stride=2, padding=1),
+                    nn.ReLU(inplace=True),
+                    nn.ConvTranspose2d(channel // 2, out_channel, 4, stride=2, padding=1),
+                ]
+            )
+
+        elif stride == 16:
+            blocks.extend(
+                [
+                    nn.ConvTranspose2d(channel, channel // 2, 4, stride=2, padding=1),
+                    nn.ReLU(inplace=True),
+                    nn.ConvTranspose2d(channel // 2, channel // 2, 4, stride=2, padding=1),
                     nn.ReLU(inplace=True),
                     nn.ConvTranspose2d(channel // 2, channel // 2, 4, stride=2, padding=1),
                     nn.ReLU(inplace=True),
@@ -226,12 +248,12 @@ class VQVAE(nn.Module):
             stride=stride_b,
         )
 
-    def eigen_str(self):
-        """
-        Eigen string, which reflect the model characters.
-        :return:
-        """
-        return f"str{self.stride_b}_emb{self.embed_dim}_epo{self.epoch}"
+    # def eigen_str(self):
+    #     """
+    #     Eigen string, which reflect the model characters.
+    #     :return:
+    #     """
+    #     return f"str{self.stride_b}_emb{self.embed_dim}_epo{self.epoch:03d}"
 
     def forward(self, input):
         # input: [bs, 3, 256, 256]

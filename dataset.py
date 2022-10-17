@@ -2,6 +2,7 @@ import os
 import pickle
 from collections import namedtuple
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torchvision import datasets
@@ -20,6 +21,29 @@ class ImageFileDataset(datasets.ImageFolder):
         filename = os.path.join(class_name, filename)
 
         return sample, target, filename
+
+
+class ImageFileLabelDataset(datasets.ImageFolder):
+    def __getitem__(self, index):
+        sample, target = super().__getitem__(index)
+        path, _ = self.samples[index]
+        _, filename = os.path.split(path)
+
+        return sample, target, filename, self.classes[target]
+
+
+class NumpyFileLabelDataset(datasets.DatasetFolder):
+    def __init__(self, root):
+        vf = lambda x: x.endswith('npy')
+        loader = lambda x: np.load(x)
+        super().__init__(root, loader, is_valid_file=vf)
+
+    def __getitem__(self, index):
+        sample, target = super().__getitem__(index)
+        path, _ = self.samples[index]
+        _, filename = os.path.split(path)
+
+        return sample, target, filename, self.classes[target]
 
 
 class LMDBDataset(Dataset):
