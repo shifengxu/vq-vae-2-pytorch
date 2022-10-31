@@ -24,6 +24,7 @@ def gen_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu_ids", nargs='+', type=int, default=[2])
     parser.add_argument("--epoch", type=int, default=560)
+    parser.add_argument("--epoch_start", type=int, default=0)
     parser.add_argument("--embed_dim", type=int, default=2)
     parser.add_argument("--stride_b", type=int, default=16)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -96,7 +97,9 @@ def train(args, model):
     t_mse_avg_arr = [] # test data of mse
     t_ltt_avg_arr = [] # test data os latent
     time_start = time.time()
-    for epoch in range(args.epoch):
+    log_fn(f"epoch      : {args.epoch}")
+    log_fn(f"epoch_start: {args.epoch_start}")
+    for epoch in range(args.epoch_start, args.epoch):
         lr = optimizer.param_groups[0]["lr"]
         log_fn(f"Epoch: {epoch}/{args.epoch}. lr:{lr:.5f} -----------------")
         mse_sum = 0
